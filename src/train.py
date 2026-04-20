@@ -38,6 +38,7 @@ def main() -> None:
     args = parse_args()
     train_df = pd.read_csv(args.train_path)
 
+    # `train.csv` 里同时有有标签和无标签样本；训练时只能使用有标签的部分。
     if TARGET_COLUMN not in train_df.columns:
         msg = f"Expected target column '{TARGET_COLUMN}' in {args.train_path}."
         raise ValueError(msg)
@@ -48,6 +49,7 @@ def main() -> None:
         raise ValueError(msg)
 
     if args.max_train_rows is not None and args.max_train_rows < len(labeled_df):
+        # 可选的抽样模式可以降低实验成本，同时保持结果可复现。
         labeled_df = labeled_df.sample(
             n=args.max_train_rows,
             random_state=args.random_state,
@@ -58,6 +60,7 @@ def main() -> None:
     X = featured.drop(columns=[TARGET_COLUMN])
     y = featured[TARGET_COLUMN]
 
+    # sklearn 的 Pipeline 可以保证训练和预测阶段使用完全一致的预处理流程。
     model = Pipeline(
         steps=[
             ("preprocessor", build_preprocessor(schema)),
@@ -66,6 +69,7 @@ def main() -> None:
     )
 
     cv = KFold(n_splits=args.cv_folds, shuffle=True, random_state=args.random_state)
+    # 对于损失类指标，cross_val_score 会返回负值，这里需要取反还原成 RMSE。
     cv_scores = -cross_val_score(
         model,
         X,
@@ -82,6 +86,7 @@ def main() -> None:
         random_state=args.random_state,
     )
 
+    # 这一步用留出验证集估计模型在未见过样本上的端到端效果。
     model.fit(X_train, y_train)
     valid_raw = model.predict(X_valid)
     valid_rounded = rounded_clipped_predictions(valid_raw, y_train)
@@ -89,6 +94,7 @@ def main() -> None:
     holdout_rmse_raw = evaluate_rmse(y_valid, valid_raw)
     holdout_rmse_rounded = evaluate_rmse(y_valid, valid_rounded)
 
+    # 序列化保存前，再用全部有标签数据重训一次，让最终模型用满所有监督信息。
     model.fit(X, y)
 
     Path(args.model_path).parent.mkdir(parents=True, exist_ok=True)
@@ -97,6 +103,7 @@ def main() -> None:
     with open(args.model_path, "wb") as handle:
         pickle.dump(model, handle)
 
+    # 保存推断出的 schema，便于之后的推理和扩展保持一致。
     save_metadata(args.metadata_path, schema, int(y.min()), int(y.max()))
 
     metrics = {

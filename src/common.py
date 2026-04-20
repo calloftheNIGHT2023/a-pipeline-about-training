@@ -29,6 +29,7 @@ class Schema:
 
 
 def infer_id_column(df: pd.DataFrame) -> str:
+    # 优先使用常见的标识列名称，便于稳定对齐训练集和测试集中的样本。
     for column in DEFAULT_ID_CANDIDATES:
         if column in df.columns:
             return column
@@ -41,6 +42,7 @@ def infer_id_column(df: pd.DataFrame) -> str:
 
 
 def infer_schema(df: pd.DataFrame) -> Schema:
+    # 直接从数据表中推断特征分组，让这套流水线可以复用于相似数据。
     id_column = infer_id_column(df)
 
     text_columns: list[str] = []
@@ -64,6 +66,7 @@ def infer_schema(df: pd.DataFrame) -> Schema:
 
     engineered_numeric_columns = []
     for column in text_columns:
+        # 这些是轻量级文本统计特征，用来补充稀疏的 TF-IDF 表示。
         engineered_numeric_columns.extend(
             [
                 f"{column}__char_count",
@@ -101,6 +104,7 @@ def add_features(df: pd.DataFrame, schema: Schema) -> pd.DataFrame:
     enriched = df.copy()
 
     if schema.text_columns:
+        # 将所有评论类文本列合并成一个字段，交给同一个向量化器处理。
         merged = (
             enriched[schema.text_columns]
             .fillna("")
@@ -117,6 +121,7 @@ def add_features(df: pd.DataFrame, schema: Schema) -> pd.DataFrame:
     enriched["merged_text__word_count"] = merged.str.split().str.len().fillna(0)
 
     for column in schema.text_columns:
+        # 按列保留一些简单的风格特征，避免它们在 TF-IDF 中被弱化。
         values = enriched[column].fillna("").astype(str)
         enriched[f"{column}__char_count"] = values.str.len()
         enriched[f"{column}__word_count"] = values.str.split().str.len().fillna(0)
@@ -135,6 +140,7 @@ def build_preprocessor(schema: Schema) -> ColumnTransformer:
         steps=[
             (
                 "tfidf",
+                # 词级 unigram 和 bigram 往往能为情感类任务提供一个很强的稀疏基线。
                 TfidfVectorizer(
                     strip_accents="unicode",
                     lowercase=True,
@@ -174,10 +180,12 @@ def build_preprocessor(schema: Schema) -> ColumnTransformer:
     if schema.categorical_columns:
         transformers.append(("cat", categorical_pipeline, schema.categorical_columns))
 
+    # ColumnTransformer 会分别处理不同类型特征，再把结果拼接成一个总特征矩阵。
     return ColumnTransformer(transformers=transformers, remainder="drop")
 
 
 def rounded_clipped_predictions(raw_predictions: np.ndarray, y_train: pd.Series) -> np.ndarray:
+    # Ridge 输出的是连续值，但最终提交必须是合法的整数星级。
     low = int(y_train.min())
     high = int(y_train.max())
     return np.clip(np.rint(raw_predictions), low, high).astype(int)

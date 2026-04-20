@@ -1,13 +1,13 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/6KpniKiX)
-# CS506 Midterm
+# a-pipelinw-for-kaggle
 
 Predict Amazon movie review star ratings for the Kaggle competition `cs-506-spring-2026-midterm`.
 
-This repository contains a reproducible non-neural, non-boosting baseline pipeline for the Amazon movie review rating prediction task. The current pipeline is designed to be easy to rerun, extend, and document for the course midterm requirements.
+This repository contains a reproducible non-neural, non-boosting baseline pipeline for the Amazon movie review rating prediction task. The current pipeline is designed to be easy to rerun, extend, and document for Kaggle-style experimentation.
 
 ## Repository description
 
-Baseline pipeline for CS506 midterm Kaggle competition on Amazon movie review star rating prediction using TF-IDF, categorical features, and ridge regression optimized for RMSE.
+Baseline pipeline for Kaggle-style Amazon movie review star rating prediction using TF-IDF, categorical features, and ridge regression optimized for RMSE.
 
 ## Environment
 
